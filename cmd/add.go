@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"encoding/csv"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -19,22 +20,28 @@ type TodoList struct {
 	complete bool
 }
 
-// addCmd represents the add command
+// addCmd represents the 'add' command for the CLI application.
+// This command adds a new task to the todo.csv file with a unique ID, the task description,
+// the current timestamp, and a default 'Complete' status of false.
 var addCmd = &cobra.Command{
-	Use:   "add",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:   "add [task description]",
+	Short: "Add a new task to your todo list.",
+	Long: `Add a new task to your todo list by specifying a task description.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+This command appends a new task to the todo.csv file, assigning it a unique process-based ID,
+the current timestamp, and marking it as incomplete by default.
+
+Example:
+    todo add "Buy groceries"
+This will add a new task with the description "Buy groceries".`,
+	Args: cobra.ExactArgs(1), // Ensures exactly one argument (the task description) is provided
 	Run: func(cmd *cobra.Command, args []string) {
-		// Open mock db file or create it if it doesn't exist yet
+		// Open the CSV file for appending, create it if it doesn't exist.
 		file, err := os.OpenFile("todo.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
+		// Ensure the file is closed after writing.
 		defer func(file *os.File) {
 			err := file.Close()
 			if err != nil {
@@ -42,7 +49,7 @@ to quickly create a Cobra application.`,
 			}
 		}(file)
 
-		// Check if file is new (empty), if so, write header
+		// Check if the file is new (empty); if so, write the header row.
 		fileInfo, err := file.Stat()
 		if err != nil {
 			log.Fatal(err)
@@ -52,29 +59,34 @@ to quickly create a Cobra application.`,
 		defer writer.Flush()
 
 		if fileInfo.Size() == 0 {
-			// File is new, write header
+			// File is new, write the CSV header.
 			err = writer.Write([]string{"id", "task", "time", "Complete"})
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
 
-		// Write the new task as a row
+		// Prepare the new task row:
+		// - id: uses a UUID for uniqueness.
+		// - task: the task description from the user.
+		// - time: current timestamp in a standard format.
+		// - Complete: set to false by default.
 		row := []string{
-			strconv.Itoa(os.Getpid()),
+			uuid.New().String(),
 			args[0],
-			time.Now().Format(time.DateTime),
+			time.Now().Format(time.RFC822Z),
 			strconv.FormatBool(false),
 		}
 
+		// Write the new task row to the CSV file.
 		err = writer.Write(row)
 		if err != nil {
 			log.Fatal(err)
 		}
-
 	},
 }
 
+// init registers the addCmd with the root command.
 func init() {
 	rootCmd.AddCommand(addCmd)
 }
